@@ -715,6 +715,11 @@ static dret_t read_message(deminfo *di, message **mr)
         m->size = 6;
         read_n_uint8_t(di, 6, di->buffer);
 
+        // force read map title (there may be none)
+        size = read_string(di, di->buffer2);
+        memcpy(di->buffer + m->size, di->buffer2, size);
+        m->size += size;
+
         // read mapname and models
         do {
           size = read_string(di, di->buffer2);
