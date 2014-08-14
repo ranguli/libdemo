@@ -1,14 +1,10 @@
 SILENT	?= @
-VERSION	 = 0.1
+VERSION	 = 0.3
 
 BINARY	 = libdemo.a
 
-CFLAGS	 =
-
-ifeq ($(OSTYPE),cygwin)
-CFLAGS	+= -m32
-CFLAGS	+= -mno-cygwin
-endif
+CC	 = i686-pc-mingw32-gcc
+AR	 = i686-pc-mingw32-ar
 
 ARFLAGS	 = cr
 

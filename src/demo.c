@@ -151,6 +151,11 @@ char *demo_error(dret_t errcode)
  *                READ API                                                   *
  *****************************************************************************/
 
+static inline dret_t bp(dret_t code)
+{
+  return code;
+}
+
 dret_t demo_read(flagfield *flags, demo **dem)
 {
   deminfo *di;
@@ -167,8 +172,8 @@ dret_t demo_read(flagfield *flags, demo **dem)
   }
 
   while (flags->flag != READFLAG_END) {
-    switch ((int) flags->flag) {
-    case (int) READFLAG_FILENAME:
+    switch ((size_t) flags->flag) {
+    case (size_t) READFLAG_FILENAME:
       if (di->fp != NULL) {
         ret = DEMO_BAD_PARAMS;
         goto demo_read_failure;
@@ -181,7 +186,7 @@ dret_t demo_read(flagfield *flags, demo **dem)
       di->fp = local_fp;
       break;
 
-    case (int) READFLAG_FP:
+    case (size_t) READFLAG_FP:
       if (di->fp != NULL) {
         ret = DEMO_BAD_PARAMS;
         goto demo_read_failure;
@@ -189,7 +194,7 @@ dret_t demo_read(flagfield *flags, demo **dem)
       di->fp = (FILE *) flags->value;
       break;
 
-    case (int) READFLAG_PROGRESS_CB:
+    case (size_t) READFLAG_PROGRESS_CB:
       di->pcb = (progress_cb_t) flags->value;
       break;
 
@@ -236,8 +241,8 @@ dret_t demo_write(flagfield *flags, demo *demo)
   }
 
   while (flags->flag != WRITEFLAG_END) {
-    switch ((int) flags->flag) {
-    case (int) WRITEFLAG_FILENAME:
+    switch ((size_t) flags->flag) {
+    case (size_t) WRITEFLAG_FILENAME:
       if (fp != NULL || filename != NULL) {
         ret = DEMO_BAD_PARAMS;
         goto demo_write_failure;
@@ -245,7 +250,7 @@ dret_t demo_write(flagfield *flags, demo *demo)
       filename = (char *) flags->value;
       break;
 
-    case (int) WRITEFLAG_FP:
+    case (size_t) WRITEFLAG_FP:
       if (fp != NULL || filename != NULL) {
         ret = DEMO_BAD_PARAMS;
         goto demo_write_failure;
@@ -253,7 +258,7 @@ dret_t demo_write(flagfield *flags, demo *demo)
       fp = (FILE *) flags->value;
       break;
 
-    case (int) WRITEFLAG_REPLACE:
+    case (size_t) WRITEFLAG_REPLACE:
       replace = 1;
       break;
 
@@ -423,7 +428,7 @@ static dret_t read_block(deminfo *di, block **br)
 
   length = read_uint32_t(di);
   if (length > MAX_BLOCK_LENGTH) {
-    return DEMO_CORRUPT_DEMO;
+    return bp(DEMO_CORRUPT_DEMO);
   }
 
   // alloc the needed memory
@@ -447,6 +452,7 @@ static dret_t read_block(deminfo *di, block **br)
   return DEMO_OK;
 
  read_block_failure:
+  bp(0);
   free_block(b);
   return ret;
 }
@@ -497,7 +503,7 @@ static dret_t read_messages(deminfo *di, message **m, uint32_t length)
 
   // error check, we expect an exact amount of data
   if (messagelen != length) {
-    ret = DEMO_CORRUPT_DEMO;
+    ret = bp(DEMO_CORRUPT_DEMO);
     goto read_messages_failure;
   }
 
@@ -506,6 +512,7 @@ static dret_t read_messages(deminfo *di, message **m, uint32_t length)
   return DEMO_OK;
 
  read_messages_failure:
+  bp(0);
   free_messages(head);
   return ret;
 }
@@ -632,15 +639,20 @@ static dret_t read_message(deminfo *di, message **mr)
         memcpy(m->data, di->buffer, m->size);
       }
       else {
-        ret = DEMO_CORRUPT_DEMO;
+        ret = bp(DEMO_CORRUPT_DEMO);
         goto read_message_failure;
       }
       break;
 
     case FQSPAWNBASELINE2:
       if (di->protocol == PROTOCOL_FITZQUAKE) {
+	uint8_t entnum1;
+	uint8_t entnum2;
+
         m->size = 15 + 1; // +1 for flag byte
 
+        entnum1 = read_uint8_t(di); // entnum precedes the mask
+        entnum2 = read_uint8_t(di);
         mask = read_uint8_t(di); // the flag byte
         if (mask & 0x01) {
           m->size += 1;
@@ -652,11 +664,13 @@ static dret_t read_message(deminfo *di, message **mr)
           m->size += 1;
         }
         GET_MEMORY(m->data, m->size, ret, read_message_failure);
-        m->data[0] = (uint8_t) mask;
-        read_n_uint8_t(di, m->size - 1, m->data + 1);
+	m->data[0] = entnum1;
+	m->data[1] = entnum2;
+        m->data[2] = (uint8_t) mask;
+        read_n_uint8_t(di, m->size - 3, m->data + 3);
       }
       else {
-        ret = DEMO_CORRUPT_DEMO;
+        ret = bp(DEMO_CORRUPT_DEMO);
         goto read_message_failure;
       }
       break;
@@ -680,7 +694,7 @@ static dret_t read_message(deminfo *di, message **mr)
         read_n_uint8_t(di, m->size - 1, m->data + 1);
       }
       else {
-        ret = DEMO_CORRUPT_DEMO;
+        ret = bp(DEMO_CORRUPT_DEMO);
         goto read_message_failure;
       }
       break;
@@ -785,7 +799,7 @@ static dret_t read_message(deminfo *di, message **mr)
         m->size += count_setbits(mask & bytemask);
 
         if (mask & 0x80000000) {
-          ret = DEMO_CORRUPT_DEMO;
+          ret = bp(DEMO_CORRUPT_DEMO);
           goto read_message_failure; // unsupported
         }
 
@@ -835,7 +849,7 @@ static dret_t read_message(deminfo *di, message **mr)
     default:
       // an entity update
       if ((m->type & 128) == 0) {
-        ret = DEMO_CORRUPT_DEMO;
+        ret = bp(DEMO_CORRUPT_DEMO);
         goto read_message_failure;
       }
       else {
@@ -902,6 +916,7 @@ static dret_t read_message(deminfo *di, message **mr)
   return DEMO_OK;
 
  read_message_failure:
+  bp(0);
   free_message(m);
   return ret;
 }
@@ -992,13 +1007,13 @@ static dret_t read_cdtrack(deminfo *di, int32_t *track)
     else {
       number -= '0';
       if (number > 9) {
-        return DEMO_CORRUPT_DEMO;
+        return bp(DEMO_CORRUPT_DEMO);
       }
       cdtrack = cdtrack * 10 + number;
     }
     if (++readcount > 6) {
       // don't expect more than 6 chars to select a cd track
-      return DEMO_CORRUPT_DEMO;
+      return bp(DEMO_CORRUPT_DEMO);
     }
   }
   if (sign) {
@@ -1084,13 +1099,13 @@ static dret_t write_messages(FILE *fp, message *m, uint32_t length)
 
     writesize += written;
     if (writesize > length) {
-      return DEMO_CORRUPT_DEMO;
+      return bp(DEMO_CORRUPT_DEMO);
     }
   }
 
   // validate demo integrity
   if (writesize != length) {
-    return DEMO_CORRUPT_DEMO;
+    return bp(DEMO_CORRUPT_DEMO);
   }
 
   return DEMO_OK;
@@ -1104,7 +1119,7 @@ static dret_t write_message(FILE *fp, message *m, size_t *written)
 
   // write message id
   if (m->type > UCHAR_MAX) {
-    return DEMO_CORRUPT_DEMO;
+    return bp(DEMO_CORRUPT_DEMO);
   }
   du8 = (uint8_t)m->type;
   count = fwrite(&du8, sizeof(du8), 1, fp);

@@ -49,6 +49,8 @@ extern "C" {
  */
 #if defined __i386__
 #define _DEMO_LITTLE_ENDIAN
+#elif defined __x86_64
+#define _DEMO_LITTLE_ENDIAN
 #elif defined __ARM_EABI__
 #define _DEMO_LITTLE_ENDIAN
 #elif defined __PPC__
