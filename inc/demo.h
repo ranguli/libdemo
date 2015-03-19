@@ -1,6 +1,6 @@
 /***************************************************************************
  *
- * Copyright (c) 2013 Mathias Thore
+ * Copyright (c) 2013-2015 Mathias Thore
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -251,6 +251,7 @@ extern char *demo_error(dret_t errcode);
 #define PROTOCOL_UNKNOWN         0
 #define PROTOCOL_NETQUAKE        15
 #define PROTOCOL_FITZQUAKE       666
+#define PROTOCOL_BJP3            10002
 
 /*****************************************************************************
  *                                                                           *
@@ -300,6 +301,12 @@ extern char *demo_error(dret_t errcode);
 #define FQSPAWNBASELINE2         0x2A
 #define FQSPAWNSTATIC2           0x2B
 #define FQSPAWNSTATICSOUND2      0x2C
+//PROTOCOL_BJP3
+#define BJP3SHOWLMP              0x23
+#define BJP3HIDELMP              0x24
+#define BJP3SKYBOX               0x25
+#define BJP3FOG                  0x33
+
 
 #ifdef __cplusplus
 }

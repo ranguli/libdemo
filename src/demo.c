@@ -1,6 +1,6 @@
 /***************************************************************************
  *
- * Copyright (c) 2013 Mathias Thore
+ * Copyright (c) 2013-2015 Mathias Thore
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -581,7 +581,7 @@ static dret_t read_message(deminfo *di, message **mr)
     m->size = 15;
     break;
 
-  default: // variable size messages
+  default: // variable size messages or non standard protocol
     process = 1;
   }
 
@@ -610,6 +610,22 @@ static dret_t read_message(deminfo *di, message **mr)
     }
   }
 
+  if (di->protocol == PROTOCOL_BJP3) {
+    switch (m->type) {
+    case SPAWNBASELINE:
+    case SPAWNSTATIC:
+      m->size += 1;
+      break;
+
+    case SPAWNSTATICSOUND:
+      // size change nulled by Compatibility flag
+      break;
+
+    default:
+      break;
+    }
+  }
+
   if (!process) {
     // deal with messages with known length
     GET_MEMORY(m->data, m->size, ret, read_message_failure);
@@ -632,7 +648,10 @@ static dret_t read_message(deminfo *di, message **mr)
       break;
 
     case FQSKYBOX:
-      if (di->protocol == PROTOCOL_FITZQUAKE) {
+  //case BJP3SKYBOX:
+      if (di->protocol == PROTOCOL_FITZQUAKE ||
+          di->protocol == PROTOCOL_BJP3)
+      {
         // it's a string
         m->size = read_string(di, di->buffer);
         GET_MEMORY(m->data, m->size, ret, read_message_failure);
@@ -646,8 +665,8 @@ static dret_t read_message(deminfo *di, message **mr)
 
     case FQSPAWNBASELINE2:
       if (di->protocol == PROTOCOL_FITZQUAKE) {
-	uint8_t entnum1;
-	uint8_t entnum2;
+        uint8_t entnum1;
+        uint8_t entnum2;
 
         m->size = 15 + 1; // +1 for flag byte
 
@@ -664,8 +683,8 @@ static dret_t read_message(deminfo *di, message **mr)
           m->size += 1;
         }
         GET_MEMORY(m->data, m->size, ret, read_message_failure);
-	m->data[0] = entnum1;
-	m->data[1] = entnum2;
+        m->data[0] = entnum1;
+        m->data[1] = entnum2;
         m->data[2] = (uint8_t) mask;
         read_n_uint8_t(di, m->size - 3, m->data + 3);
       }
@@ -703,6 +722,9 @@ static dret_t read_message(deminfo *di, message **mr)
       {
         mask = read_uint8_t(di); // the flag byte
         m->size = 10;
+        if (di->protocol == PROTOCOL_BJP3) {
+          m->size += 1; // sound_num short rather than byte
+        }
         if (mask & 0x01) {
           m->size += 1;
         }
@@ -797,6 +819,11 @@ static dret_t read_message(deminfo *di, message **mr)
           bytemask = 0x70FF;
         }
         m->size += count_setbits(mask & bytemask);
+        if (di->protocol == PROTOCOL_BJP3) {
+          if (mask & (0x4000)) {
+            m->size += 1; // SU_WEAPON short rather than byte
+          }
+        }
 
         if (mask & 0x80000000) {
           ret = bp(DEMO_CORRUPT_DEMO);
@@ -846,6 +873,66 @@ static dret_t read_message(deminfo *di, message **mr)
       }
       break;
 
+    case BJP3SHOWLMP:
+      if (di->protocol == PROTOCOL_BJP3) {
+        char slotname[2048];
+        size_t slotname_l;
+        char lmpfilename[2048];
+        size_t lmpfilename_l;
+
+        // [string] slotname [string] lmpfilename [coord] x [coord] y
+        slotname_l = read_string(di, slotname);
+        lmpfilename_l = read_string(di, lmpfilename);
+        m->size = slotname_l + lmpfilename_l + 2;
+        GET_MEMORY(m->data, m->size, ret, read_message_failure);
+        memcpy(m->data, slotname, slotname_l);
+        memcpy(m->data + slotname_l, lmpfilename, lmpfilename_l);
+        m->data[m->size - 2] = read_uint8_t(di);
+        m->data[m->size - 1] = read_uint8_t(di);
+      }
+      else {
+        ret = bp(DEMO_CORRUPT_DEMO);
+        goto read_message_failure;
+      }
+      break;
+
+    case BJP3HIDELMP:
+      if (di->protocol == PROTOCOL_BJP3) {
+        // [string] slotname
+        m->size = read_string(di, di->buffer);
+        GET_MEMORY(m->data, m->size, ret, read_message_failure);
+        memcpy(m->data, di->buffer, m->size);
+      }
+      else {
+        ret = bp(DEMO_CORRUPT_DEMO);
+        goto read_message_failure;
+      }
+      break;
+
+    case BJP3FOG:
+      if (di->protocol == PROTOCOL_BJP3) {
+        uint8_t enable;
+
+        // [byte] enable
+        // <optional past this point, only included if enable is true>
+        // [float] density [byte] red [byte] green [byte] blue
+        m->size = 1;
+        enable = read_uint8_t(di);
+        if (enable) {
+          m->size += 7;
+        }
+        GET_MEMORY(m->data, m->size, ret, read_message_failure);
+        m->data[0] = enable;
+        if (enable) {
+          read_n_uint8_t(di, 7, m->data + 1);
+        }
+      }
+      else {
+        ret = bp(DEMO_CORRUPT_DEMO);
+        goto read_message_failure;
+      }
+      break;
+
     default:
       // an entity update
       if ((m->type & 128) == 0) {
@@ -891,6 +978,13 @@ static dret_t read_message(deminfo *di, message **mr)
 
         // these bits cost an additional 2 bytes
         m->size += count_setbits(mask & 0xE) << 1;
+
+        // this bit may cost an additional byte
+        if (di->protocol == PROTOCOL_BJP3) {
+          if (mask & (0x0400)) {
+            m->size += 1; // U_MODEL short rather than byte
+          }
+        }
 
         GET_MEMORY(m->data, m->size, ret, read_message_failure);
 
@@ -1235,7 +1329,8 @@ static dret_t find_protocol(message *m, uint32_t *p)
 
     *p = protocol;
     if (protocol != PROTOCOL_NETQUAKE &&
-        protocol != PROTOCOL_FITZQUAKE)
+        protocol != PROTOCOL_FITZQUAKE &&
+        protocol != PROTOCOL_BJP3)
     {
       return DEMO_UNKNOWN_PROTOCOL;
     }
@@ -1306,7 +1401,25 @@ static char *msg_name(deminfo *di, int type)
     "spawnstatic2 (fq)",
     "spawnstaticsound2 (fq)",
   };
-
+  static char *bjp3_msg_names[] = {
+    "showlmp (bjp3)",
+    "hidelmp (bjp3)",
+    "skybox (bjp3)",
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    UNSUP,
+    "fog (bjp3)",
+  };
   if (type >= 128) {
     return "quick update";
   }
@@ -1318,6 +1431,12 @@ static char *msg_name(deminfo *di, int type)
            type <= FQSPAWNSTATICSOUND2)
   {
     return fq_msg_names[type - FQSKYBOX];
+  }
+  else if (di->protocol == PROTOCOL_BJP3 &&
+           type >= BJP3SHOWLMP &&
+           type <= BJP3FOG)
+  {
+    return bjp3_msg_names[type - BJP3SHOWLMP];
   }
   else {
     return UNSUP;
