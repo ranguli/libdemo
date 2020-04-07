@@ -3,15 +3,14 @@ VERSION	 = 0.3
 
 BINARY	 = libdemo.a
 
-CC	 = i686-pc-mingw32-gcc
-AR	 = i686-pc-mingw32-ar
+CC	 = gcc 
+AR	 = ar
 
 ARFLAGS	 = cr
 
 ifeq ($(DEBUG),YES)
-CFLAGS	+= -g
+CFLAGS	+= -g -O0
 else
-CFLAGS	+= -O3
 endif
 
 OBJ	 = demo.o

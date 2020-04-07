@@ -1,0 +1,14 @@
+[
+    {
+        "arguments": [
+            "cc",
+            "-c",
+            "-Iinc",
+            "-o",
+            "obj/demo.o",
+            "src/demo.c"
+        ],
+        "directory": "/home/joshua/projects/quake_dev/demos/libdemo",
+        "file": "src/demo.c"
+    }
+]

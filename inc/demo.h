@@ -1,67 +1,13 @@
-/***************************************************************************
- *
- * Copyright (c) 2013-2015 Mathias Thore
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use, copy,
- * modify, merge, publish, distribute, sublicense, and/or sell copies
- * of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
- * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
- * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- ***************************************************************************/
-
 #ifndef DEMO_H
 #define DEMO_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #include <stdio.h>
 #include <stdint.h>
 
-/*****************************************************************************
- *                                                                           *
- *                DATA TYPES                                                 *
- *                                                                           *
- *****************************************************************************/
+// DATA TYPES
 
-/* Portability
- *
- * _DEMO_LITTLE_ENDIAN/_DEMO_BIG_ENDIAN
- * The library performs endian conversion on 16 and 32 bit
- * numbers to be able to parse the demo data. Define the
- * macro that describes your architecture.
- */
-#if defined __i386__
-#define _DEMO_LITTLE_ENDIAN
-#elif defined __x86_64
-#define _DEMO_LITTLE_ENDIAN
-#elif defined __ARM_EABI__
-#define _DEMO_LITTLE_ENDIAN
-#elif defined __PPC__
-#define _DEMO_BIG_ENDIAN
-#elif defined __mips
-#define _DEMO_BIG_ENDIAN
-#else
-#error unsupported architecture
-#endif
-
-/* Demos are represented by the demo data type, pointing to a linked list of
+/* 
+ * Demos are represented by the demo data type, pointing to a linked list of
  * blocks, each in turn pointing to a linked list of messages.
  */
 
@@ -94,35 +40,10 @@ typedef struct _flagfield {
 
 /* Return data type
  */
-typedef int dret_t;
 
 /* Progress callback function type
  */
 typedef void (*progress_cb_t)(unsigned int);
-
-/*****************************************************************************
- *                                                                           *
- *                DEFINES                                                    *
- *                                                                           *
- *****************************************************************************/
-
-#if defined _DEMO_LITTLE_ENDIAN
-#define htods(a) (a)
-#define htodl(a) (a)
-#define dtohs
-#define dtohl
-#elif defined _DEMO_BIG_ENDIAN
-#define htods(a) ((((uint16_t)(a) & 0x00FF) << 8) |             \
-                  (((uint16_t)(a) & 0xFF00) >> 8))
-#define htodl(a) ((((uint32_t)(a) & 0x000000FF) << 24) |        \
-                  (((uint32_t)(a) & 0x0000FF00) << 8)  |        \
-                  (((uint32_t)(a) & 0x00FF0000) >> 8)  |        \
-                  (((uint32_t)(a) & 0xFF000000) >> 24))
-#define dtohs htods
-#define dtohl htodl
-#else
-#error machine endian not supplied
-#endif
 
 /*****************************************************************************
  *                                                                           *
@@ -145,7 +66,7 @@ typedef void (*progress_cb_t)(unsigned int);
  * @long Reads a quake demo file from a supplied file name or FILE pointer,
  *       and returns it for processing.
  */
-extern dret_t demo_read(flagfield *flags, demo **demo);
+extern int demo_read(flagfield *flags, demo **demo);
 
 /**
  * @function demo_write
@@ -160,7 +81,7 @@ extern dret_t demo_read(flagfield *flags, demo **demo);
  *
  * @long Writes quake demo data pointed to by the demo pointer to a file.
  */
-extern dret_t demo_write(flagfield *flags, demo *demo);
+extern int demo_write(flagfield *flags, demo *demo);
 
 /**
  * @function demo_free
@@ -172,7 +93,7 @@ extern dret_t demo_write(flagfield *flags, demo *demo);
  * @long Frees the resources (memory) used to describe the demo, including
  *       the demo itself.
  */
-extern dret_t demo_free(demo *demo);
+extern int demo_free(demo *demo);
 
 /**
  * @function demo_free_data
@@ -184,7 +105,7 @@ extern dret_t demo_free(demo *demo);
  * @long Frees the resources (memory) used to describe the demo. All block
  *       and message data is freed, but the demo itself is not.
  */
-extern dret_t demo_free_data(demo *demo);
+extern int demo_free_data(demo *demo);
 
 /**
  * @function demo_error
@@ -197,7 +118,8 @@ extern dret_t demo_free_data(demo *demo);
  *
  * @long Translates demo error codes to human readable error strings.
  */
-extern char *demo_error(dret_t errcode);
+extern char *demo_error(int errcode);
+
 
 /*****************************************************************************
  *                                                                           *
@@ -307,9 +229,5 @@ extern char *demo_error(dret_t errcode);
 #define BJP3SKYBOX               0x25
 #define BJP3FOG                  0x33
 
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // DEMO_H
